@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poster Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;700;900&family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@400;700;900&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ---------------------------------------------------------------------------
+   Identity: a prepress proofing bench. The palette is the subject's own —
+   process cyan for anything you touch, process magenta reserved for what's
+   live. Crop marks frame the artboard because that is how a poster proof is
+   presented, and they double as the safe-area guide.
+   ------------------------------------------------------------------------ */
+:root{
+  --bench:#E7E4DD; --panel:#F5F3EE; --sunk:#DCD8D0;
+  --rule:#CFCAC0;  --rule-soft:#E0DCD3;
+  --ink:#1A1B1D;   --dim:#6E6A63;
+  --cyan:#0E7E9B;  --magenta:#B81E74;
+  --shadow:rgba(26,27,29,.16);
+
+  --display:"Barlow Condensed",'Arial Narrow',sans-serif;
+  --body:"Archivo",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+:root:not([data-theme="light"]){ }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bench:#161719; --panel:#1E2023; --sunk:#0F1012;
+    --rule:#2E3135;  --rule-soft:#26282B;
+    --ink:#E9E6E0;   --dim:#8B8E93;
+    --cyan:#3FB9D8;  --magenta:#E45BA6;
+    --shadow:rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bench:#161719; --panel:#1E2023; --sunk:#0F1012;
+  --rule:#2E3135;  --rule-soft:#26282B;
+  --ink:#E9E6E0;   --dim:#8B8E93;
+  --cyan:#3FB9D8;  --magenta:#E45BA6;
+  --shadow:rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bench);color:var(--ink);
+  font-family:var(--body);font-size:13px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* --- masthead ----------------------------------------------------------- */
+header{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex:none;
+  padding:11px 18px;border-bottom:1px solid var(--rule);background:var(--panel);
+}
+header h1{
+  margin:0;font-family:var(--display);font-size:19px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+}
+header .sub{
+  font-family:var(--mono);font-size:10px;color:var(--dim);
+  letter-spacing:.09em;text-transform:uppercase;
+  padding-left:16px;border-left:1px solid var(--rule);
+}
+#status{
+  margin-left:auto;display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--dim);
+}
+#status::before{
+  content:"";width:6px;height:6px;border-radius:50%;
+  background:var(--magenta);flex:none;
+}
+
+main{display:flex;flex:1;min-height:0}
+
+/* --- bench -------------------------------------------------------------- */
+.bench{
+  flex:1;min-width:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:22px;padding:26px 24px;
+  background:var(--sunk);
+}
+.proof{position:relative;display:block}
+/* crop marks: prepress convention, and they show the trim of the 9:16 frame */
+.proof::before,.proof::after{
+  content:"";position:absolute;inset:-13px;pointer-events:none;
+  background:
+    linear-gradient(var(--rule),var(--rule)) left  top   /1px 16px no-repeat,
+    linear-gradient(var(--rule),var(--rule)) left  top   /16px 1px no-repeat,
+    linear-gradient(var(--rule),var(--rule)) right top   /1px 16px no-repeat,
+    linear-gradient(var(--rule),var(--rule)) right top   /16px 1px no-repeat;
+}
+.proof::after{transform:rotate(180deg)}
+canvas#stage{
+  height:min(68vh,720px);width:auto;aspect-ratio:9/16;display:block;
+  box-shadow:0 18px 44px var(--shadow);
+}
+
+.transport{
+  display:flex;align-items:center;gap:13px;width:min(520px,100%);
+  font-family:var(--mono);font-size:10px;color:var(--dim);
+}
+.transport button{
+  width:29px;height:29px;flex:none;border-radius:50%;cursor:pointer;
+  border:1px solid var(--rule);background:var(--panel);color:var(--ink);
+  font-size:9px;line-height:1;display:grid;place-items:center;
+  transition:border-color .15s,color .15s;
+}
+.transport button:hover{border-color:var(--cyan);color:var(--cyan)}
+.transport button:focus-visible,
+input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--cyan);outline-offset:2px;
+}
+#clock{font-variant-numeric:tabular-nums;white-space:nowrap}
+#scrub{flex:1;accent-color:var(--magenta)}
+
+/* --- spec column -------------------------------------------------------- */
+aside{
+  width:322px;flex:none;border-left:1px solid var(--rule);
+  background:var(--panel);overflow-y:auto;padding-bottom:26px;
+}
+.group{padding:13px 15px;border-bottom:1px solid var(--rule-soft)}
+.group h3{
+  margin:0 0 10px;font-family:var(--display);font-size:12px;font-weight:600;
+  letter-spacing:.17em;text-transform:uppercase;color:var(--dim);
+  display:flex;align-items:baseline;gap:8px;
+}
+.group h3::after{
+  content:"";flex:1;height:1px;background:var(--rule-soft);
+}
+.row{
+  display:grid;grid-template-columns:76px 1fr 46px;align-items:center;
+  gap:9px;margin-bottom:6px;
+}
+.row .k{
+  font-size:11.5px;color:var(--dim);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.row output{
+  font-family:var(--mono);font-size:10px;color:var(--ink);text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.row.wide{grid-template-columns:1fr}
+
+/* live readout of the fitter — the actual output of the algorithm */
+#fit{
+  font-family:var(--mono);font-size:10.5px;line-height:1.75;
+  border:1px solid var(--rule-soft);border-radius:2px;
+  padding:8px 10px;background:var(--sunk);min-height:74px;
+}
+#fit .ln{display:flex;justify-content:space-between;gap:10px}
+#fit .ln b{font-weight:500;color:var(--ink);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+#fit .ln span{color:var(--cyan);font-variant-numeric:tabular-nums;flex:none}
+#fit .meta{color:var(--dim);margin-top:5px;padding-top:5px;
+  border-top:1px dashed var(--rule-soft);display:flex;justify-content:space-between}
+
+input[type=range]{width:100%;accent-color:var(--cyan);height:16px}
+input[type=color]{
+  width:100%;height:23px;padding:0;border:1px solid var(--rule);
+  border-radius:2px;background:none;cursor:pointer;
+}
+input[type=checkbox]{accent-color:var(--cyan);width:14px;height:14px;justify-self:start}
+select,textarea,input[type=file],input[type=text]{
+  width:100%;background:var(--sunk);color:var(--ink);
+  border:1px solid var(--rule);border-radius:2px;
+  padding:5px 7px;font-family:var(--mono);font-size:11px;
+}
+textarea{resize:vertical;min-height:104px;line-height:1.6}
+input[type=file]{padding:4px;color:var(--dim);cursor:pointer}
+input[type=file]::file-selector-button{
+  background:var(--rule);color:var(--ink);border:0;border-radius:2px;
+  padding:3px 9px;margin-right:8px;font-family:var(--mono);font-size:10px;cursor:pointer;
+}
+.hint{color:var(--dim);font-size:11px;line-height:1.55;margin:7px 0 0}
+.hint code{font-family:var(--mono);font-size:10px;color:var(--cyan)}
+
+/* --- detection editor --------------------------------------------------- */
+.btn{
+  width:100%;padding:7px 9px;margin-top:8px;cursor:pointer;
+  border:1px solid var(--cyan);background:transparent;color:var(--cyan);
+  border-radius:2px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.13em;text-transform:uppercase;
+  transition:background .15s,color .15s;
+}
+.btn:hover:not([disabled]){background:var(--cyan);color:var(--panel)}
+.btn[disabled]{opacity:.4;cursor:default}
+.btn.ghost{border-color:var(--rule);color:var(--dim)}
+.btn.ghost:hover:not([disabled]){background:var(--rule);color:var(--ink)}
+
+.prog{height:2px;background:var(--rule-soft);margin-top:8px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--magenta);transition:width .2s}
+
+.lyr{
+  display:grid;grid-template-columns:50px 1fr 16px 16px 28px 14px;gap:5px;
+  align-items:center;margin-bottom:4px;
+}
+.lyr .t{
+  font-family:var(--mono);font-size:10px;color:var(--cyan);
+  background:none;border:0;padding:2px 0;cursor:pointer;text-align:left;
+  font-variant-numeric:tabular-nums;
+}
+.lyr .t:hover{text-decoration:underline}
+.lyr .sync,.lyr .nudge,.lyr .drop{
+  font-family:var(--mono);font-size:9px;color:var(--dim);
+  background:none;border:0;padding:2px 0;cursor:pointer;text-transform:uppercase;
+}
+.lyr .sync:hover,.lyr .nudge:hover{color:var(--cyan)}
+.lyr .drop:hover{color:var(--magenta)}
+.lyr input{
+  font-family:var(--body);font-size:12px;padding:4px 7px;
+  background:var(--sunk);border:1px solid var(--rule-soft);
+  border-radius:2px;color:var(--ink);width:100%;
+}
+.lyr input::placeholder{color:var(--dim);font-style:italic}
+.lyr.flag input{border-color:var(--magenta)}
+.lyr.now .t{color:var(--magenta);font-weight:700}
+.lyr.now input{border-color:var(--magenta)}
+#lineList{max-height:290px;overflow-y:auto;margin:2px -2px 0;padding:0 2px}
+.tally{
+  display:flex;justify-content:space-between;font-family:var(--mono);
+  font-size:10px;color:var(--dim);margin-bottom:8px;
+}
+.warn{color:var(--magenta)}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+@media (max-width:900px){
+  main{flex-direction:column}
+  aside{width:100%;border-left:0;border-top:1px solid var(--rule);max-height:48vh}
+  canvas#stage{height:min(44vh,440px)}
+  .bench{padding:20px 16px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="root">
+  <header>
+    <h1>Poster Engine</h1>
+    <span class="sub">Width-fitted kinetic type · WebGL</span>
+    <span id="status">booting</span>
+  </header>
+
+  <main>
+    <div class="bench">
+      <div class="proof"><canvas id="stage" width="1080" height="1920"></canvas></div>
+      <div class="transport">
+        <button id="play" title="Play / pause" aria-label="Play or pause">❚❚</button>
+        <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Scrub">
+        <span id="clock">0:00.0</span>
+      </div>
+    </div>
+
+    <aside>
+      <section class="group">
+        <h3>Fit</h3>
+        <div id="fit"></div>
+        <p class="hint">Every line is set at whatever size spans the measure, so
+          both edges stay flush. Sizes are an output, never a setting.</p>
+      </section>
+
+      <section class="group">
+        <h3>Detect</h3>
+        <label class="row"><span class="k">Audio</span><input id="audio" class="c" type="file" accept="audio/*"></label>
+        <label class="row"><span class="k">Words from</span>
+          <select id="wordSource" class="c">
+            <option value="paste">my lyrics</option>
+            <option value="none">signal only</option>
+            <option value="tiny">whisper tiny · 40MB</option>
+            <option value="base">whisper base · 78MB</option>
+            <option value="small">whisper small · 250MB · slow first run</option>
+          </select>
+        </label>
+        <textarea id="pasteLyrics" spellcheck="false" placeholder="Paste the lines you wrote — one line per lyric line. Timing comes from your vocal."></textarea>
+        <label class="row"><span class="k">Sensitivity</span><input id="sens" class="c" type="range" min="0.10" max="0.45" step="0.01" value="0.26"></label>
+        <button id="detect" class="btn" disabled>Detect placement</button>
+        <div class="prog" id="prog" hidden><i></i></div>
+        <p class="hint" id="detectStatus">Your own songs: paste the lines you
+          wrote, or use Whisper for a draft. Timing comes from the vocal.</p>
+      </section>
+
+      <section class="group" id="linesGroup" hidden>
+        <h3>Lines</h3>
+        <div class="tally"><span id="tally"></span><span id="tallyWarn" class="warn"></span></div>
+        <div id="lineList"></div>
+        <button id="applyLines" class="btn">Apply to canvas</button>
+        <button id="showRaw" class="btn ghost">Show raw LRC</button>
+        <p class="hint">− / + slides a line 80ms. Set pins the start to the
+          playhead. × deletes extras.</p>
+      </section>
+
+      <section class="group" id="rawGroup" hidden>
+        <h3>Raw LRC</h3>
+        <textarea id="lrc" spellcheck="false"></textarea>
+        <p class="hint">Timestamps <code>[mm:ss.xx]</code> optional. Word-level
+          <code>&lt;mm:ss.xx&gt;</code> tags drive per-word emphasis.</p>
+        <label class="row"><span class="k">Clips</span><input id="videos" class="c" type="file" accept="video/*" multiple></label>
+      </section>
+      <div id="controls"></div>
+    </aside>
+  </main>
+</div>
+
+<script type="module">
+  import * as THREE from './vendor/three.module.js';
+  import { boot } from './src/app.js';
+  boot(THREE, document.getElementById('root')).catch(e => {
+    document.getElementById('status').textContent = 'error: ' + e.message;
+    console.error(e);
+  });
+</script>
+</body>
+</html>
